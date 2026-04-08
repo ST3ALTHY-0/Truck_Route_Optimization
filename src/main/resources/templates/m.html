@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Route Optimization | Logistics Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #27ae60;
+            --warning: #f39c12;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-bottom: 60px;
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
+            margin-bottom: 25px;
+        }
+        
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .card-header {
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            color: white;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            border-bottom: none;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 12px 15px;
+            border: 2px solid #e1e5eb;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            border: none;
+            padding: 12px 25px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(120deg, var(--secondary), var(--primary));
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline-secondary {
+            border-radius: 8px;
+        }
+        
+        .map-container {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            height: 100%;
+        }
+        
+        #map {
+            height: 100%;
+            min-height: 400px;
+            z-index: 1;
+        }
+        
+        .info-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+        
+        .input-group-text {
+            background-color: #f8f9fa;
+            border: 2px solid #e1e5eb;
+            border-radius: 8px;
+        }
+        
+        .truck-icon {
+            font-size: 1.8rem;
+            color: var(--secondary);
+            margin-right: 10px;
+        }
+        
+        .section-title {
+            position: relative;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .section-title:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border-radius: 2px;
+        }
+        
+        .example-text {
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--secondary);
+            padding: 10px 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .route-marker {
+            background: var(--secondary);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .constraint-card {
+            border-left: 4px solid var(--warning);
+        }
+        
+        .nav-tabs .nav-link {
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            padding: 12px 20px;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+        }
+        
+        .form-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+        }
+        
+        .location-input {
+            position: relative;
+        }
+        
+        .geocode-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        .capacity-badge {
+            background-color: var(--secondary);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .capacity-badge i {
+            margin-right: 5px;
+        }
+        
+        .job-card {
+            border-left: 4px solid var(--success);
+            transition: all 0.3s;
+        }
+        
+        .job-card:hover {
+            transform: translateX(5px);
+        }
+        
+        .constraint-highlight {
+            background-color: rgba(243, 156, 18, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .footer {
+            background: var(--dark);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            .map-container {
+                margin-top: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(120deg, var(--primary), var(--secondary));">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-route me-2"></i>RouteOptimizer Pro
+            </a>
+            <div class="d-flex">
+                <button class="btn btn-sm btn-light me-2">
+                    <i class="fas fa-history me-1"></i> History
+                </button>
+                <button class="btn btn-sm btn-light">
+                    <i class="fas fa-download me-1"></i> Export
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="text-center mb-4">
+            <h1 class="fw-bold mb-3" style="color: var(--primary);">
+                <i class="fas fa-truck-loading me-2"></i>Truck Route Optimization
+            </h1>
+            <p class="text-muted">Optimize delivery routes with comprehensive constraints and parameters</p>
+        </div>
+        
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs mb-4" id="optimizationTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles" type="button" role="tab">
+                    <i class="fas fa-truck me-2"></i>Vehicles
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="jobs-tab" data-bs-toggle="tab" data-bs-target="#jobs" type="button" role="tab">
+                    <i class="fas fa-map-marker-alt me-2"></i>Jobs/Locations
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="constraints-tab" data-bs-toggle="tab" data-bs-target="#constraints" type="button" role="tab">
+                    <i class="fas fa-sliders-h me-2"></i>Constraints
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="results-tab" data-bs-toggle="tab" data-bs-target="#results" type="button" role="tab">
+                    <i class="fas fa-chart-line me-2"></i>Results
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="optimizationTabsContent">
+            <!-- Vehicles Tab -->
+            <div class="tab-pane fade show active" id="vehicles" role="tabpanel">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="form-section">
+                            <h3 class="section-title">Vehicle Constraints</h3>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Vehicle Identification</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                                            <input type="text" class="form-control" placeholder="Vehicle ID (e.g., TRK-001)" value="TRK-001">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-truck"></i></span>
+                                            <select class="form-select">
+                                                <option>Standard Truck</option>
+                                                <option>Refrigerated Truck</option>
+                                                <option>Flatbed Truck</option>
+                                                <option>Small Van</option>
+                                                <option>Heavy Hauler</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Locations</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6 location-input">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-map-marker"></i></span>
+                                            <input type="text" class="form-control" placeholder="Start location (address)" value="Columbus, OH">
+                                        </div>
+                                        <button class="geocode-btn"><i class="fas fa-search-location"></i></button>
+                                    </div>
+                                    <div class="col-md-6 location-input">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-flag-checkered"></i></span>
+                                            <input type="text" class="form-control" placeholder="End location (optional)" value="Same as start">
+                                        </div>
+                                        <button class="geocode-btn"><i class="fas fa-search-location"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Capacity & Resources</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-pallet"></i></span>
+                                            <input type="number" class="form-control" placeholder="Pallets" value="20">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-weight-hanging"></i></span>
+                                            <input type="number" class="form-control" placeholder="Weight (kg)" value="5000">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-arrows-alt-v"></i></span>
+                                            <input type="number" class="form-control" placeholder="Volume (m³)" value="30">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Time Constraints</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                            <input type="time" class="form-control" value="08:00">
+                                            <span class="input-group-text">to</span>
+                                            <input type="time" class="form-control" value="18:00">
+                                        </div>
+                                        <div class="form-text mt-1">Work shift time window</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-stopwatch"></i></span>
+                                            <input type="number" class="form-control" placeholder="Max working hours" value="10">
+                                            <span class="input-group-text">hours</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Additional Parameters</label>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
+                                            <input type="number" class="form-control" placeholder="Speed modifier" value="1.0" step="0.1">
+                                            <span class="input-group-text">x</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-tags"></i></span>
+                                            <input type="text" class="form-control" placeholder="Skills/tags (comma separated)" value="hazardous, refrigerated">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mt-4">
+                                <button class="btn btn-primary">
+                                    <i class="fas fa-plus-circle me-2"></i>Add Another Vehicle
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-truck me-2"></i>
+                                <span>Current Vehicles</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Type</th>
+                                                <th>Capacity</th>
+                                                <th>Shift</th>
+                                                <th>Tags</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>TRK-001</td>
+                                                <td>Standard Truck</td>
+                                                <td>20 pallets</td>
+                                                <td>8am-6pm</td>
+                                                <td><span class="badge bg-secondary">general</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>TRK-002</td>
+                                                <td>Refrigerated</td>
+                                                <td>15 pallets</td>
+                                                <td>7am-5pm</td>
+                                                <td><span class="badge bg-info">cold</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>VAN-101</td>
+                                                <td>Small Van</td>
+                                                <td>5 pallets</td>
+                                                <td>9am-7pm</td>
+                                                <td><span class="badge bg-warning">urgent</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-map-marked-alt me-2"></i>
+                                <span>Vehicle Locations</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="map-container">
+                                    <div id="map"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-upload me-2"></i>
+                                <span>Batch Upload</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Upload Vehicle Data</label>
+                                    <input type="file" class="form-control" accept=".csv,.xlsx">
+                                    <div class="form-text">CSV/Excel format with vehicle details</div>
+                                </div>
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-secondary">
+                                        <i class="fas fa-download me-2"></i>Download Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Jobs/Locations Tab -->
+            <div class="tab-pane fade" id="jobs" role="tabpanel">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="form-section">
+                            <h3 class="section-title">Job & Location Constraints</h3>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Job Identification</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                            <input type="text" class="form-control" placeholder="Job ID (e.g., JOB-101)" value="JOB-101">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-tasks"></i></span>
+                                            <select class="form-select">
+                                                <option>Delivery</option>
+                                                <option>Pickup</option>
+                                                <option>Service</option>
+                                                <option>Inspection</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Location Details</label>
+                                <div class="location-input mb-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                                        <input type="text" class="form-control" placeholder="Address or location" value="456 Oak Ave, Cleveland, OH">
+                                    </div>
+                                    <button class="geocode-btn"><i class="fas fa-search-location"></i></button>
+                                </div>
+                                <div class="form-text">Click the map to set location coordinates</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Demand & Service</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-box"></i></span>
+                                            <input type="number" class="form-control" placeholder="Pallets" value="5">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                            <input type="number" class="form-control" placeholder="Service time" value="15">
+                                            <span class="input-group-text">min</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-star"></i></span>
+                                            <select class="form-select">
+                                                <option>Normal</option>
+                                                <option>High</option>
+                                                <option>Urgent</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Time Constraints</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                            <input type="time" class="form-control" value="09:00">
+                                            <span class="input-group-text">to</span>
+                                            <input type="time" class="form-control" value="17:00">
+                                        </div>
+                                        <div class="form-text mt-1">Time window for this job</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-tags"></i></span>
+                                            <input type="text" class="form-control" placeholder="Required skills/tags" value="refrigerated">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4 constraint-highlight">
+                                <label class="form-label fw-bold">Dependencies & Constraints</label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="jobDependency">
+                                    <label class="form-check-label" for="jobDependency">
+                                        This job must come after another specific job
+                                    </label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-project-diagram"></i></span>
+                                            <select class="form-select" disabled>
+                                                <option>Select dependent job</option>
+                                                <option>JOB-100 (Warehouse)</option>
+                                                <option>JOB-102 (Supplier)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-ban"></i></span>
+                                            <select class="form-select">
+                                                <option>No vehicle restrictions</option>
+                                                <option>Exclude small vans</option>
+                                                <option>Only refrigerated trucks</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mt-4">
+                                <button class="btn btn-primary">
+                                    <i class="fas fa-plus-circle me-2"></i>Add Another Job
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-list-ol me-2"></i>
+                                <span>Scheduled Jobs</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="job-card card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="mb-1">JOB-101: Delivery</h5>
+                                                <p class="mb-1"><i class="fas fa-map-marker-alt text-secondary me-2"></i>456 Oak Ave, Cleveland, OH</p>
+                                                <div class="d-flex mt-2">
+                                                    <span class="capacity-badge"><i class="fas fa-box"></i> 5 Pallets</span>
+                                                    <span class="capacity-badge"><i class="fas fa-clock"></i> 15 min service</span>
+                                                    <span class="capacity-badge"><i class="fas fa-calendar-day"></i> 9am-5pm</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-success">High Priority</span>
+                                                <div class="mt-2">
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="job-card card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="mb-1">JOB-102: Pickup</h5>
+                                                <p class="mb-1"><i class="fas fa-map-marker-alt text-secondary me-2"></i>789 Pine St, Indianapolis, IN</p>
+                                                <div class="d-flex mt-2">
+                                                    <span class="capacity-badge"><i class="fas fa-box"></i> 8 Pallets</span>
+                                                    <span class="capacity-badge"><i class="fas fa-clock"></i> 30 min service</span>
+                                                    <span class="capacity-badge"><i class="fas fa-calendar-day"></i> 10am-4pm</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-info">Cold Storage</span>
+                                                <div class="mt-2">
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="job-card card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="mb-1">JOB-103: Service</h5>
+                                                <p class="mb-1"><i class="fas fa-map-marker-alt text-secondary me-2"></i>321 Maple Dr, Cincinnati, OH</p>
+                                                <div class="d-flex mt-2">
+                                                    <span class="capacity-badge"><i class="fas fa-box"></i> 2 Pallets</span>
+                                                    <span class="capacity-badge"><i class="fas fa-clock"></i> 45 min service</span>
+                                                    <span class="capacity-badge"><i class="fas fa-calendar-day"></i> 1pm-5pm</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-warning">After JOB-101</span>
+                                                <div class="mt-2">
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-map-marked-alt me-2"></i>
+                                <span>Job Locations</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="map-container">
+                                    <div id="map2"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-upload me-2"></i>
+                                <span>Batch Upload</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Upload Job Data</label>
+                                    <input type="file" class="form-control" accept=".csv,.xlsx">
+                                    <div class="form-text">CSV/Excel format with job details</div>
+                                </div>
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-secondary">
+                                        <i class="fas fa-download me-2"></i>Download Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Constraints Tab -->
+            <div class="tab-pane fade" id="constraints" role="tabpanel">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="form-section constraint-card">
+                            <h3 class="section-title">Global Constraints</h3>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Route Constraints</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-road"></i></span>
+                                            <input type="number" class="form-control" placeholder="Max route distance" value="1500">
+                                            <span class="input-group-text">km</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-stopwatch"></i></span>
+                                            <input type="number" class="form-control" placeholder="Max route duration" value="10">
+                                            <span class="input-group-text">hours</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Break & Rest Rules</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-coffee"></i></span>
+                                            <input type="number" class="form-control" placeholder="Break after" value="4">
+                                            <span class="input-group-text">hours</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-bed"></i></span>
+                                            <input type="number" class="form-control" placeholder="Break duration" value="0.5">
+                                            <span class="input-group-text">hours</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Cost Parameters</label>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-money-bill-wave"></i></span>
+                                            <input type="number" class="form-control" placeholder="Cost per km" value="1.25" step="0.01">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-money-bill-wave"></i></span>
+                                            <input type="number" class="form-control" placeholder="Cost per hour" value="45" step="0.5">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3 class="section-title">Job Dependencies</h3>
+                            
+                            <div class="mb-4">
+                                <div class="form-text mb-3">Define sequences where one job must be completed before another</div>
+                                
+                                <div class="row g-3 align-items-center mb-3">
+                                    <div class="col-md-5">
+                                        <select class="form-select">
+                                            <option>JOB-101 (Cleveland)</option>
+                                            <option selected>JOB-102 (Indianapolis)</option>
+                                            <option>JOB-103 (Cincinnati)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 text-center">
+                                        <i class="fas fa-arrow-right"></i> must come after <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <select class="form-select">
+                                            <option selected>JOB-101 (Cleveland)</option>
+                                            <option>JOB-102 (Indianapolis)</option>
+                                            <option>JOB-103 (Cincinnati)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-primary">
+                                        <i class="fas fa-plus me-2"></i>Add Dependency
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-project-diagram me-2"></i>
+                                <span>Current Dependencies</span>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold">JOB-103 (Cincinnati)</span> must come after 
+                                            <span class="fw-bold">JOB-101 (Cleveland)</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold">JOB-104 (Dayton)</span> must come after 
+                                            <span class="fw-bold">JOB-102 (Indianapolis)</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-calculator me-2"></i>
+                                <span>Optimization Parameters</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Optimization Time</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                        <input type="number" class="form-control" value="120">
+                                        <span class="input-group-text">seconds</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Penalty Settings</label>
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text"><i class="fas fa-exclamation-triangle"></i></span>
+                                        <input type="number" class="form-control" placeholder="Per km over" value="50">
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-exclamation-triangle"></i></span>
+                                        <input type="number" class="form-control" placeholder="Per km under" value="50">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Algorithm Settings</label>
+                                    <select class="form-select mb-2">
+                                        <option>Balanced (Time & Cost)</option>
+                                        <option>Minimize Distance</option>
+                                        <option>Minimize Time</option>
+                                        <option>Minimize Vehicles</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="d-grid mt-4">
+                                    <button class="btn btn-primary">
+                                        <i class="fas fa-bolt me-2"></i>Run Optimization
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span>Constraint Summary</span>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex">
+                                        <i class="fas fa-truck text-primary me-3 mt-1"></i>
+                                        <div>
+                                            <div class="fw-bold">3 Vehicles</div>
+                                            <small>2 trucks, 1 van with various capacities</small>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex">
+                                        <i class="fas fa-map-marker-alt text-success me-3 mt-1"></i>
+                                        <div>
+                                            <div class="fw-bold">5 Jobs/Locations</div>
+                                            <small>With time windows and priorities</small>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex">
+                                        <i class="fas fa-road text-warning me-3 mt-1"></i>
+                                        <div>
+                                            <div class="fw-bold">Max Route: 1500 km</div>
+                                            <small>10 hours maximum duration</small>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex">
+                                        <i class="fas fa-link text-info me-3 mt-1"></i>
+                                        <div>
+                                            <div class="fw-bold">2 Dependencies</div>
+                                            <small>Job sequencing requirements</small>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Tab -->
+            <div class="tab-pane fade" id="results" role="tabpanel">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-chart-line me-2"></i>
+                                <span>Optimization Results</span>
+                                <div class="badge bg-success ms-3">Savings: $1,240</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-4">
+                                    <div class="col-md-3 text-center">
+                                        <div class="display-5 fw-bold">3</div>
+                                        <div class="text-muted">Routes Used</div>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="display-5 fw-bold">1,240</div>
+                                        <div class="text-muted">Total km</div>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="display-5 fw-bold">18.5</div>
+                                        <div class="text-muted">Total Hours</div>
+                                    </div>
+                                    <div class="col-md-3 text-center">
+                                        <div class="display-5 fw-bold">98%</div>
+                                        <div class="text-muted">Constraints Met</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <h5 class="fw-bold mb-3">Route #1: TRK-001 (20 pallet capacity)</h5>
+                                    <div class="progress mb-3" style="height: 10px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: 50%;" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    
+                                    <div class="route-path mb-4">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker bg-success"></span>
+                                            <span>Warehouse (Start) - 8:00 AM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker"></span>
+                                            <span>Columbus, OH - 5 pallets - 9:30 AM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker"></span>
+                                            <span>Dayton, OH - 8 pallets - 11:45 AM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker"></span>
+                                            <span>Cincinnati, OH - 5 pallets - 2:30 PM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="route-marker bg-danger"></span>
+                                            <span>Warehouse (End) - 5:15 PM</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="text-success fw-bold">425 km</div>
+                                            <small>Distance</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-primary fw-bold">9h 15m</div>
+                                            <small>Duration</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-info fw-bold">$850</div>
+                                            <small>Cost</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <hr class="my-4">
+                                
+                                <div>
+                                    <h5 class="fw-bold mb-3">Route #2: TRK-002 (15 pallet capacity)</h5>
+                                    <div class="progress mb-3" style="height: 10px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 20%;" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: 60%;" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: 20%;" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    
+                                    <div class="route-path mb-4">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker bg-success"></span>
+                                            <span>Warehouse (Start) - 7:00 AM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker"></span>
+                                            <span>Cleveland, OH - 5 pallets - 9:15 AM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="route-marker"></span>
+                                            <span>Indianapolis, IN - 8 pallets - 12:30 PM</span>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="route-marker bg-danger"></span>
+                                            <span>Warehouse (End) - 4:20 PM</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="text-success fw-bold">680 km</div>
+                                            <small>Distance</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-primary fw-bold">9h 20m</div>
+                                            <small>Duration</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-info fw-bold">$1,120</div>
+                                            <small>Cost</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-map-marked-alt me-2"></i>
+                                <span>Optimized Routes</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="map-container">
+                                    <div id="map3"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center">
+                                <i class="fas fa-chart-pie me-2"></i>
+                                <span>Optimization Metrics</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-4">
+                                    <h6 class="fw-bold">Distance Distribution</h6>
+                                    <div class="progress mb-2" style="height: 15px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 34%;">Route 1</div>
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: 55%;">Route 2</div>
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: 11%;">Route 3</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <h6 class="fw-bold">Cost Breakdown</h6>
+                                    <ul class="list-group">
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>Fuel Costs</span>
+                                            <span class="fw-bold">$1,240</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>Labor Costs</span>
+                                            <span class="fw-bold">$980</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>Vehicle Costs</span>
+                                            <span class="fw-bold">$560</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between list-group-item-success">
+                                            <span>Total Savings</span>
+                                            <span class="fw-bold">$1,240</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-primary">
+                                        <i class="fas fa-download me-2"></i>Export Full Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-truck me-2"></i>RouteOptimizer Pro
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-light me-2">
+                        <i class="fas fa-save me-1"></i> Save Configuration
+                    </button>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-bolt me-2"></i>Run Optimization
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map for vehicles tab
+        var map = L.map('map').setView([40.0, -83.0], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            tileSize: 102,
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Vehicle locations
+        const vehicleLocations = [
+            {lat: 39.9834, lng: -82.9833, title: 'Warehouse (Start/End)', type: 'warehouse'},
+            {lat: 39.9612, lng: -82.9988, title: 'TRK-001: Columbus', type: 'truck'},
+            {lat: 41.4993, lng: -81.6944, title: 'TRK-002: Cleveland', type: 'truck'},
+        ];
+        
+        // Add markers
+        vehicleLocations.forEach(loc => {
+            let iconColor = loc.type === 'warehouse' ? '#27ae60' : '#3498db';
+            let iconHtml = `<div style="background-color: ${iconColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`;
+            
+            L.marker([loc.lat, loc.lng], {
+                icon: L.divIcon({
+                    className: 'vehicle-icon',
+                    html: iconHtml,
+                    iconSize: [20, 20]
+                })
+            }).addTo(map).bindPopup(loc.title);
+        });
+        
+        // Initialize map for jobs tab
+        var map2 = L.map('map2').setView([40.0, -83.0], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            tileSize: 102,
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map2);
+        
+        // Job locations
+        const jobLocations = [
+            {lat: 39.9834, lng: -82.9833, title: 'Warehouse', type: 'warehouse'},
+            {lat: 39.9612, lng: -82.9988, title: 'JOB-101: Columbus', type: 'job'},
+            {lat: 41.4993, lng: -81.6944, title: 'JOB-102: Cleveland', type: 'job'},
+            {lat: 39.7684, lng: -86.1581, title: 'JOB-103: Indianapolis', type: 'job'},
+            {lat: 39.1031, lng: -84.5120, title: 'JOB-104: Cincinnati', type: 'job'},
+        ];
+        
+        // Add markers
+        jobLocations.forEach(loc => {
+            let iconColor = loc.type === 'warehouse' ? '#27ae60' : '#e74c3c';
+            let iconHtml = `<div style="background-color: ${iconColor}; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>`;
+            
+            L.marker([loc.lat, loc.lng], {
+                icon: L.divIcon({
+                    className: 'job-icon',
+                    html: iconHtml,
+                    iconSize: [18, 18]
+                })
+            }).addTo(map2).bindPopup(loc.title);
+        });
+        
+        // Initialize map for results tab
+        var map3 = L.map('map3').setView([40.0, -83.0], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            tileSize: 102,
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map3);
+        
+        // Route 1
+        const route1 = [
+            [39.9834, -82.9833], // Warehouse
+            [39.9612, -82.9988], // Columbus
+            [39.7589, -84.1916], // Dayton
+            [39.1031, -84.5120], // Cincinnati
+            [39.9834, -82.9833]  // Warehouse
+        ];
+        
+        // Route 2
+        const route2 = [
+            [39.9834, -82.9833], // Warehouse
+            [41.4993, -81.6944], // Cleveland
+            [39.7684, -86.1581], // Indianapolis
+            [39.9834, -82.9833]  // Warehouse
+        ];
+        
+        // Draw routes
+        L.polyline(route1, { 
+            color: '#3498db',
+            weight: 5,
+            opacity: 0.8
+        }).addTo(map3);
+        
+        L.polyline(route2, { 
+            color: '#e74c3c',
+            weight: 5,
+            opacity: 0.8,
+            dashArray: '10, 10'
+        }).addTo(map3);
+        
+        // Add markers
+        jobLocations.forEach(loc => {
+            let iconColor = loc.type === 'warehouse' ? '#27ae60' : '#e74c3c';
+            let iconHtml = `<div style="background-color: ${iconColor}; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>`;
+            
+            L.marker([loc.lat, loc.lng], {
+                icon: L.divIcon({
+                    className: 'job-icon',
+                    html: iconHtml,
+                    iconSize: [16, 16]
+                })
+            }).addTo(map3).bindPopup(loc.title);
+        });
+        
+        // Fit all maps to bounds
+        const bounds = L.latLngBounds([...vehicleLocations.map(loc => [loc.lat, loc.lng]), ...jobLocations.map(loc => [loc.lat, loc.lng])]);
+        map.fitBounds(bounds);
+        map2.fitBounds(bounds);
+        map3.fitBounds(bounds);
+        
+        // Tab switching simulation for demonstration
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                // In a real app, you would load data based on the tab
+                console.log('Switched to tab:', this.innerText);
+            });
+        });
+    </script>
+</body>
+</html>

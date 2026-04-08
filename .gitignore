@@ -1,0 +1,56 @@
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+*~
+*.swp
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Maven Build Output
+# ========================
+/target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ========================
+# Java
+# ========================
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+*.log
+*.ctxt
+.mtj.tmp/
+
+# ========================
+# Secrets / Environment
+# ========================
+.env
+.env.*
+!.env.example
+application-local.properties
+application-secret.properties

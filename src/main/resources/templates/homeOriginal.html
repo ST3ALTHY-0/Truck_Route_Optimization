@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Route Optimization | Logistics Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #27ae60;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            height: 100%;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .card {
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            /* transform: translateY(-5px); */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            background: #f8f9fa;
+            color: #333;
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .form-control,
+        .form-select {
+            border-radius: 8px;
+            padding: 12px 15px;
+            border: 2px solid #e1e5eb;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            border: none;
+            padding: 12px 25px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(120deg, var(--secondary), var(--primary));
+            transform: translateY(-2px);
+        }
+
+        .map-container {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+
+        #map {
+            height: 100%;
+            min-height: 400px;
+            z-index: 1;
+            width: 100%;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .map-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+        }
+
+        .settings-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: 500px;
+            z-index: 10;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .results-overlay {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: 400px;
+            z-index: 10;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .info-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px 15px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-card i {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: var(--secondary);
+        }
+
+        .stat-card h3 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0;
+            color: var(--primary);
+        }
+
+        .stat-card p {
+            color: #6c757d;
+            margin-bottom: 0;
+        }
+
+        .input-group-text {
+            background-color: #e9ecef;
+            border: 2px solid #e1e5eb;
+            border-radius: 8px;
+        }
+
+        .truck-icon {
+            font-size: 1.8rem;
+            color: var(--secondary);
+            margin-right: 10px;
+        }
+
+        .section-title {
+            position: relative;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .section-title:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border-radius: 2px;
+        }
+
+        .example-text {
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--secondary);
+            padding: 10px 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .footer {
+            background: var(--dark);
+            color: white;
+            padding: 4px 0;
+            margin-top: 0;
+            font-size: 0.75rem;
+        }
+
+        .route-marker {
+            background: var(--secondary);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .btn-group-sm .btn {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+        }
+
+        #truckTabs {
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            max-width: 100%;
+            display: flex;
+            flex-wrap: nowrap;
+        }
+
+        #truckTabs::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        #truckTabs::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        #truckTabs::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        #truckTabs::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .truck-param-field {
+            margin-bottom: 0.75rem;
+        }
+
+        .truck-param-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .truck-param-input {
+            font-size: 0.9rem;
+            padding: 0.4rem 0.6rem;
+        }
+
+        @media (max-width: 768px) {
+            .stat-card {
+                margin-bottom: 20px;
+            }
+
+            .settings-overlay {
+                max-width: 100%;
+                width: 100%;
+            }
+
+            .results-overlay {
+                max-width: 100%;
+                width: 100%;
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark"
+        style="background: linear-gradient(120deg, var(--primary), var(--secondary));">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-truck-moving me-2"></i>TruckRoute Optimizer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history"><i class="fas fa-history me-1"></i> History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-cog me-1"></i> Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-question-circle me-1"></i> Help</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-layout">
+        <!-- Full-width map background -->
+        <div class="map-background">
+            <div class="card map-container" style="height: 100%; border-radius: 0; box-shadow: none;">
+                <div class="card-body p-0">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings overlay on the left -->
+        <div class="settings-overlay">
+            <div class="row g-4">
+                <!-- Left Column: Input Form and Stats -->
+                <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-truck-loading me-2"></i>
+                        <span>Route Input Data</span>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/optimize" enctype="multipart/form-data">
+                            <!-- CSV Upload - Collapsed Section -->
+                            <div class="accordion mb-4" id="csvAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#csvCollapse">
+                                            <i class="fas fa-file-csv me-2"></i>CSV Upload
+                                        </button>
+                                    </h2>
+                                    <div id="csvCollapse" class="accordion-collapse collapse" data-bs-parent="#csvAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="file" class="form-control" id="csvFile" name="csvFile" accept=".csv">
+                                                <button class="btn btn-outline-secondary btn-sm" type="button">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                            </div>
+                                            <small class="form-text text-muted">Address, City, State, Demand</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Waypoints Section -->
+                            <div class="accordion mb-4" id="waypointsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#waypointsCollapse">
+                                            <i class="fas fa-map-pin me-2"></i>Waypoints
+                                        </button>
+                                    </h2>
+                                    <div id="waypointsCollapse" class="accordion-collapse collapse show" data-bs-parent="#waypointsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <label class="form-label">Enter Addresses (one per line)</label>
+                                            <textarea class="form-control" id="waypointsInput" name="waypoints" rows="6" placeholder="Format: Address, City, State, Demand (e.g., 123 Main St, Columbus, OH, 5)&#10;First address should be warehouse with demand 0"></textarea>
+                                            <small class="form-text text-muted d-block mt-2">Example:&#10;123 Main St, Columbus, OH, 0&#10;456 Oak Ave, Cleveland, OH, 5&#10;789 Pine Rd, Cincinnati, OH, 8</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+
+                            <!-- Optimization Parameters - Collapsible (Open by Default) -->
+                            <div class="accordion mb-4" id="optimizationParamsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#optimizationParamsCollapse">
+                                            <i class="fas fa-sliders-h me-2"></i>Optimization Parameters
+                                        </button>
+                                    </h2>
+                                    <div id="optimizationParamsCollapse" class="accordion-collapse collapse show" data-bs-parent="#optimizationParamsAccordion">
+                                        <div class="accordion-body p-3">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Number of Trucks</label>
+                                    <input type="number" name="numberOfTrucks" class="form-control" value="10" min="1" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Truck Capacity (pallets)</label>
+                                    <input type="number" name="truckCapacity" class="form-control" value="10" min="1" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Max Distance (miles)</label>
+                                    <input type="number" name="maxDistanceMiles" class="form-control" value="1000" min="1" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Optimal Distance (miles)</label>
+                                    <input type="number" name="optimalDistanceMiles" class="form-control" value="400" min="1" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Calculation Time (sec)</label>
+                                    <input type="number" name="calculationTime" class="form-control" value="120" min="1" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Penalty/Mile Over</label>
+                                    <input type="number" name="penaltyPerMileOver" class="form-control" value="50" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Penalty/Mile Under</label>
+                                    <input type="number" name="penaltyPerMileUnder" class="form-control" value="50" min="0" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Penalty per Additional Truck</label>
+                                    <input type="number" name="costOfAddingTruck" class="form-control" value="100000" min="0" required>
+                                    </div>
+                                </div>
+                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Route Options Section - Collapsible -->
+                            <div class="accordion mb-4" id="routeOptionsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#routeOptionsCollapse">
+                                            <i class="fas fa-route me-2"></i>Route Options
+                                        </button>
+                                    </h2>
+                                    <div id="routeOptionsCollapse" class="accordion-collapse collapse" data-bs-parent="#routeOptionsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Route Type</label>
+                                                    <select class="form-control" name="routeType">
+                                                        <option value="fastest">Fastest</option>
+                                                        <option value="shortest">Shortest</option>
+                                                        <option value="balanced">Balanced</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Depart Date</label>
+                                                    <input type="date" class="form-control" name="departDate">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Depart Time</label>
+                                                    <input type="time" class="form-control" name="departTime" value="08:00">
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidTollRoads" id="avoidTollRoads">
+                                                        <label class="form-check-label" for="avoidTollRoads">
+                                                            Avoid toll roads
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="reorderStops" id="reorderStops" checked>
+                                                        <label class="form-check-label" for="reorderStops">
+                                                            Re-order stops
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidFerries" id="avoidFerries">
+                                                        <label class="form-check-label" for="avoidFerries">
+                                                            Avoid ferries
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidTunnels" id="avoidTunnels">
+                                                        <label class="form-check-label" for="avoidTunnels">
+                                                            Avoid tunnels
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidDirtRoads" id="avoidDirtRoads">
+                                                        <label class="form-check-label" for="avoidDirtRoads">
+                                                            Avoid dirt roads
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="considerTraffic" id="considerTraffic">
+                                                        <label class="form-check-label" for="considerTraffic">
+                                                            Consider traffic conditions
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidSharpTurns" id="avoidSharpTurns">
+                                                        <label class="form-check-label" for="avoidSharpTurns">
+                                                            Avoid sharp turns
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="applySeasonalClosures" id="applySeasonalClosures">
+                                                        <label class="form-check-label" for="applySeasonalClosures">
+                                                            Apply seasonal closures
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Truck Parameters Section - Collapsible -->
+                            <div class="accordion mb-4" id="truckParamsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#truckParamsCollapse">
+                                            <i class="fas fa-truck me-2"></i>Truck Parameters (Advanced)
+                                        </button>
+                                    </h2>
+                                    <div id="truckParamsCollapse" class="accordion-collapse collapse" data-bs-parent="#truckParamsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="mb-3">
+                                                <div class="btn-group btn-group-sm w-100" id="truckTabs" role="group">
+                                                    <!-- Truck tabs will be generated by JavaScript -->
+                                                </div>
+                                            </div>
+                                            <div id="truckParametersContainer">
+                                                <!-- Truck parameter fields will be generated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-grid mt-4">
+                                <button class="btn btn-primary btn-lg" type="submit">
+                                    <i class="fas fa-calculator me-2"></i>Run Optimization
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <!-- <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-truck"></i>
+                            <h3>10</h3>
+                            <p>Trucks</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-road"></i>
+                            <h3>1,240 km</h3>
+                            <p>Total Distance</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-dollar-sign"></i>
+                            <h3>$4,850</h3>
+                            <p>Estimated Savings</p>
+                        </div>
+                    </div>
+                </div> -->
+            </div>
+        </div>
+
+        <!-- Results overlay on the right -->
+        <!-- <div class="results-overlay">
+            <div class="row g-4">
+                <!-- Right Column: Map and Results -->
+                <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <span>Optimization Results</span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3">Sample Route Summary</h5>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Truck #1 Route</span>
+                                <span class="badge bg-primary">18 pallets</span>
+                            </div>
+                            <div class="route-path">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker bg-success"></span>
+                                    <span>Warehouse (Start)</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Columbus, OH - 5 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Dayton, OH - 8 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Cincinnati, OH - 5 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="route-marker bg-danger"></span>
+                                    <span>Warehouse (End)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress mb-3" style="height: 10px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 25%;"
+                                aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 50%;"
+                                aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-info" role="progressbar" style="width: 25%;" aria-valuenow="25"
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="text-success fw-bold">425 km</div>
+                                <small>Distance</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-primary fw-bold">6h 25m</div>
+                                <small>Duration</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-info fw-bold">$850</div>
+                                <small>Cost</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center py-1">
+            <!-- <div class="row">
+                <div class="col-md-6 mb-4 mb-md-0">
+                    <h5><i class="fas fa-truck me-2"></i>TruckRoute Optimizer</h5>
+                    <p class="mt-3">Truck routing optimization software I wrote in my free time.</p>
+                    <p> The calculations can be very computer resource intensive, so loading times may vary.</p>
+                    <p> Currently I am limiting this to part of the midwest
+                        because of limited computing power. I am still actively updating this website
+                        and if you have any questions or suggestions email me.</p>
+                    <div th:if="${errorMessage}" class="alert alert-danger mt-3" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span th:text="${errorMessage}"></span>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4 mb-md-0">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white text-decoration-none">Documentation</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">API Access</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Pricing</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Support</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Contact</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i> tdim995@truckroute.com</li>
+                        <li><i class="fas fa-phone me-2"></i> +1 (555) 123-4567</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="my-4 bg-light"> -->
+            <p class="mb-0">&copy; 2025 TruckRoute Optimizer. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@mapbox/polyline"></script>
+    <script src="/javascript/main.js"></script>
+
+    <script th:inline="javascript">
+
+        // document.addEventListener('DOMContentLoaded', function () {
+        //     var errorMessage = /*[[${errorMessage} == null ? 'null' : '"' + ${errorMessage} + '"']]*/ null;
+        //     if (errorMessage && errorMessage !== "null" && errorMessage !== "") {
+        //         document.getElementById('errorModalBody').textContent = errorMessage;
+        //         var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        //         errorModal.show();
+        //     }
+        // });
+
+        const optimizationResults = /*[[${resultsJson}]]*/ {};
+        const results = typeof optimizationResults === 'string' ? JSON.parse(optimizationResults) : optimizationResults;
+        console.log(optimizationResults);
+        console.log(results);
+        let routeLayers = [];
+        let currentVisRouteIdx = -1; // -1 means all routes
+        let useEncodedPolyline = false; // Toggle state
+
+        // Initialize map
+            var map = L.map('map').setView([40.0, -86.0], 7);
+
+            // Add tile layer (fixed: tileSize should be 256 for OSM, not 102)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                tileSize: 256,
+                maxZoom: 18,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+
+        if (!results || !results.results || results.results.length === 0) {
+            drawSampleRoute();
+        } else {
+            drawRoutesFromResults(results);
+            //update optimization results
+        }
+
+
+        if (results && results.results && results.results.length > 0) {
+            updateOptimizationResults(results);
+        }
+
+        // Truck Parameters Management
+        const truckParameters = JSON.parse(localStorage.getItem('truckParameters')) || {};
+        
+        function initializeTruckParameters() {
+            const numTrucksInput = document.querySelector('input[name="numberOfTrucks"]');
+            if (!numTrucksInput) return;
+
+            const updateTruckTabs = () => {
+                const numTrucks = parseInt(numTrucksInput.value) || 1;
+                renderTruckTabs(numTrucks);
+                renderTruckParameters(1);
+            };
+
+            numTrucksInput.addEventListener('change', updateTruckTabs);
+            numTrucksInput.addEventListener('input', updateTruckTabs);
+            updateTruckTabs();
+        }
+
+        function renderTruckTabs(numTrucks) {
+            const tabsContainer = document.getElementById('truckTabs');
+            tabsContainer.innerHTML = '';
+            
+            for (let i = 1; i <= numTrucks; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-secondary';
+                btn.textContent = `Truck ${i}`;
+                btn.onclick = () => renderTruckParameters(i);
+                tabsContainer.appendChild(btn);
+            }
+        }
+
+        function renderTruckParameters(truckNum) {
+            const container = document.getElementById('truckParametersContainer');
+            const key = `truck_${truckNum}`;
+            const defaults = {
+                type: 'truck semi',
+                axleCount: 5,
+                hazmat: 'none',
+                fixedCost: 500,
+                costPerMile: 1.75,
+                costPerHour: 65,
+                heightFeet: 13,
+                heightInches: 6,
+                lengthFeet: 53,
+                lengthInches: 0,
+                widthFeet: 8,
+                widthInches: 6,
+                weight: 80000,
+                maxSpeed: 65,
+                fuel: 'diesel',
+                mpg: 6.5,
+                dollarPerGallon: 2.9,
+                workingTimeType: 'hours',
+                workingHours: 8,
+                workingStartTime: '07:00',
+                workingEndTime: '17:00'
+            };
+            const params = { ...defaults, ...(truckParameters[key] || {}) };
+
+            container.innerHTML = `
+                <div class="border rounded p-3 bg-light">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Truck Type</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'type', this.value)">
+                                    <option value="car" ${params.type === 'car' ? 'selected' : ''}>Car</option>
+                                    <option value="bus" ${params.type === 'bus' ? 'selected' : ''}>Bus</option>
+                                    <option value="light truck" ${params.type === 'light truck' ? 'selected' : ''}>Light Truck</option>
+                                    <option value="truck semi" ${params.type === 'truck semi' ? 'selected' : ''}>Truck Semi</option>
+                                    <option value="truck trailer" ${params.type === 'truck trailer' ? 'selected' : ''}>Truck Trailer</option>
+                                    <option value="truck double" ${params.type === 'truck double' ? 'selected' : ''}>Truck Double</option>
+                                    <option value="truck triple +" ${params.type === 'truck triple +' ? 'selected' : ''}>Truck Triple +</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Axle Count</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.axleCount}" min="1" onchange="saveTruckParam(${truckNum}, 'axleCount', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Working Time Type</label>
+                                <select class="form-control truck-param-input" id="workingTimeType_${truckNum}" onchange="saveTruckParam(${truckNum}, 'workingTimeType', this.value); renderTruckParameters(${truckNum})">
+                                    <option value="hours" ${params.workingTimeType === 'hours' ? 'selected' : ''}>Total Hours</option>
+                                    <option value="timeRange" ${params.workingTimeType === 'timeRange' ? 'selected' : ''}>Time Range</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${params.workingTimeType === 'hours' ? `
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Working Hours per Day</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.workingHours}" min="1" max="24" step="0.5" onchange="saveTruckParam(${truckNum}, 'workingHours', this.value)">
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Start Time</label>
+                                <input type="time" class="form-control truck-param-input" value="${params.workingStartTime}" onchange="saveTruckParam(${truckNum}, 'workingStartTime', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">End Time</label>
+                                <input type="time" class="form-control truck-param-input" value="${params.workingEndTime}" onchange="saveTruckParam(${truckNum}, 'workingEndTime', this.value)">
+                            </div>
+                        </div>
+                        `}
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Fixed Cost ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.fixedCost}" step="0.01" onchange="saveTruckParam(${truckNum}, 'fixedCost', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Cost/Mile ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.costPerMile}" step="0.01" onchange="saveTruckParam(${truckNum}, 'costPerMile', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Cost/Hour ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.costPerHour}" step="0.01" onchange="saveTruckParam(${truckNum}, 'costPerHour', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Height</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.heightFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'heightFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.heightInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'heightInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Length</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.lengthFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'lengthFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.lengthInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'lengthInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Width</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.widthFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'widthFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.widthInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'widthInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Weight (lbs)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.weight}" onchange="saveTruckParam(${truckNum}, 'weight', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Max Speed (mph)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.maxSpeed}" min="1" onchange="saveTruckParam(${truckNum}, 'maxSpeed', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Fuel Type</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'fuel', this.value)">
+                                    <option value="diesel" ${params.fuel === 'diesel' ? 'selected' : ''}>Diesel</option>
+                                    <option value="gas" ${params.fuel === 'gas' ? 'selected' : ''}>Gas</option>
+                                    <option value="electric" ${params.fuel === 'electric' ? 'selected' : ''}>Electric</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">MPG</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.mpg}" step="0.1" min="0.1" onchange="saveTruckParam(${truckNum}, 'mpg', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">$/Gallon</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.dollarPerGallon}" step="0.01" onchange="saveTruckParam(${truckNum}, 'dollarPerGallon', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Hazmat Class</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'hazmat', this.value)">
+                                    <option value="none" ${params.hazmat === 'none' ? 'selected' : ''}>None</option>
+                                    <option value="class1" ${params.hazmat === 'class1' ? 'selected' : ''}>Class 1: Explosives</option>
+                                    <option value="class2" ${params.hazmat === 'class2' ? 'selected' : ''}>Class 2: Gases</option>
+                                    <option value="class3" ${params.hazmat === 'class3' ? 'selected' : ''}>Class 3: Flammable Liquids</option>
+                                    <option value="class4" ${params.hazmat === 'class4' ? 'selected' : ''}>Class 4: Flammable Solids</option>
+                                    <option value="class5" ${params.hazmat === 'class5' ? 'selected' : ''}>Class 5: Oxidizers/Organic Peroxides</option>
+                                    <option value="class6" ${params.hazmat === 'class6' ? 'selected' : ''}>Class 6: Toxic/Infectious Substances</option>
+                                    <option value="class7" ${params.hazmat === 'class7' ? 'selected' : ''}>Class 7: Radioactive Materials</option>
+                                    <option value="class8" ${params.hazmat === 'class8' ? 'selected' : ''}>Class 8: Corrosives</option>
+                                    <option value="class9" ${params.hazmat === 'class9' ? 'selected' : ''}>Class 9: Miscellaneous</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Update active tab
+            const tabs = document.querySelectorAll('#truckTabs .btn');
+            tabs.forEach((tab, idx) => {
+                tab.classList.toggle('active', idx + 1 === truckNum);
+            });
+        }
+
+        function saveTruckParam(truckNum, paramKey, value) {
+            const key = `truck_${truckNum}`;
+            truckParameters[key] = truckParameters[key] || {};
+            truckParameters[key][paramKey] = paramKey === 'axleCount' || paramKey === 'weight' || paramKey === 'maxSpeed' ? parseInt(value) : isNaN(value) ? value : parseFloat(value);
+            localStorage.setItem('truckParameters', JSON.stringify(truckParameters));
+        }
+
+        // Attach event listeners after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize truck parameters
+            initializeTruckParameters();
+
+            const prevBtn = document.getElementById('prevVisRouteBtn');
+            const nextBtn = document.getElementById('nextVisRouteBtn');
+            const showAllBtn = document.getElementById('showAllRoutesBtn');
+            const togglePolylineBtn = document.getElementById('togglePolylineTypeBtn');
+            if (prevBtn) prevBtn.onclick = () => {
+                if (currentVisRouteIdx > 0) showOnlyRoute(currentVisRouteIdx - 1);
+            };
+            if (nextBtn) nextBtn.onclick = () => {
+                const totalRoutes = (results.results || results).length;
+                if (currentVisRouteIdx < totalRoutes - 1) showOnlyRoute(currentVisRouteIdx + 1);
+            };
+            if (showAllBtn) showAllBtn.onclick = () => {
+                if (currentVisRouteIdx === -1) {
+                    // Currently showing all routes, switch to first route
+                    showOnlyRoute(0);
+                } else {
+                    // Currently showing a single route, switch to all routes
+                    currentVisRouteIdx = -1;
+                    drawRoutesFromResults(results);
+                }
+            };
+            if (togglePolylineBtn) {
+                togglePolylineBtn.onclick = function () {
+                    useEncodedPolyline = !useEncodedPolyline;
+                    if (currentVisRouteIdx === -1) {
+                        drawRoutesFromResults(results);
+                    } else {
+                        showOnlyRoute(currentVisRouteIdx);
+                    }
+                };
+            }
+            updateRouteNavControls();
+        });
+
+
+    </script>
+
+
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="errorModalBody">
+                    <!-- Error message will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

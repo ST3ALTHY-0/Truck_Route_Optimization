@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+</head>
+<body>
+    <main style="max-width: 720px; margin: 3rem auto; font-family: Arial, sans-serif; line-height: 1.5;">
+        <h1>Something went wrong</h1>
+
+        <p th:if="${errorMessage}" th:text="${errorMessage}">An unexpected error occurred.</p>
+        <p th:if="${message and !errorMessage}" th:text="${message}">An unexpected error occurred.</p>
+        <p th:if="${!errorMessage and !message}">An unexpected error occurred.</p>
+
+        <hr>
+
+        <p th:if="${status}">
+            <strong>Status:</strong>
+            <span th:text="${status}">500</span>
+        </p>
+        <p th:if="${path}">
+            <strong>Path:</strong>
+            <span th:text="${path}">/</span>
+        </p>
+        <p><a href="/">Go back home</a></p>
+    </main>
+</body>
+</html>

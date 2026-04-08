@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Route Optimization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" th:href="@{/css/Style.css}">
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-truck-moving me-2"></i>TruckRoute Optimizer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history"><i class="fas fa-history me-1"></i> History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-cog me-1"></i> Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-question-circle me-1"></i> Help</a>
+                    </li>
+                    <li class="nav-item">
+                        <form th:action="@{/logout}" method="post" class="d-inline">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <button type="submit" class="nav-link btn btn-link p-0">
+                                <i class="fas fa-sign-out-alt me-1"></i> Logout
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-layout">
+        <!-- Full-width map background -->
+        <div class="map-background">
+            <div class="card map-container map-panel-card">
+                <div class="card-body p-0 map-panel-body">
+                    <div id="map"></div>
+                    <!-- Map Controls -->
+                    <div class="map-controls">
+                        <button id="prevVisRouteBtn" type="button" title="Previous route">
+                            <i class="fas fa-arrow-left"></i>Prev
+                        </button>
+                        <button id="nextVisRouteBtn" type="button" title="Next route">
+                            <i class="fas fa-arrow-right"></i>Next
+                        </button>
+                        <button id="showAllRoutesBtn" type="button" title="Show all or single route">
+                            <i class="fas fa-map"></i>Show All
+                        </button>
+                        <button id="togglePolylineTypeBtn" type="button" title="Toggle between straight lines and actual road routes">
+                            <i class="fas fa-road"></i>Roads
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings overlay on the left -->
+        <div class="settings-overlay">
+            <div class="row g-4">
+                <!-- Left Column: Input Form and Stats -->
+                <div class="col-12">
+                <!-- Info Box -->
+                <!-- <div class="info-box mb-4 p-3" style="background: #f0f4f8; border-left: 4px solid #3498db; border-radius: 8px;">
+                    <h5 class="fw-bold mb-2">
+                        <i class="fas fa-info-circle me-2"></i>How This Optimizer Works
+                    </h5>
+                    <p class="mb-2">
+                        This tool solves a <strong>multi-truck delivery routing problem</strong>.
+                        All trucks currently start and end at the same warehouse.
+                    </p>
+                    <ul class="mb-2">
+                        <li>First waypoint = warehouse (demand = 0)</li>
+                        <li>Remaining waypoints = deliveries</li>
+                        <li>Routes are optimized subject to capacity and distance limits</li>
+                    </ul>
+                    <small class="text-muted">
+                        Advanced constraints (time windows, per-truck costs, hazmat, etc.) are optional.
+                    </small>
+                </div> -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-truck-loading me-2"></i>
+                        <span>Delivery & Fleet Setup</span>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${errorMessage}" id="formErrorAlert" class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span th:text="${errorMessage}"></span>
+                        </div>
+
+                        <!-- Advanced Mode Toggle -->
+                        <div class="mb-3 d-flex justify-content-between align-items-center">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="advancedModeToggle" onchange="toggleAdvancedMode()">
+                                <label class="form-check-label fw-bold" for="advancedModeToggle">
+                                    <i class="fas fa-cog me-2"></i>Advanced Mode
+                                </label>
+                            </div>
+                            <small class="text-muted">Show all configuration options</small>
+                        </div>
+
+
+
+                        <form method="post" action="/optimize" enctype="multipart/form-data" id="optimizationForm" onsubmit="prepareFormSubmission(event)">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            
+                                                    <!-- Fleet Size - Standalone Setting -->
+                        <div class="card mb-4">
+                            <div class="card-body p-3">
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-truck me-2"></i>Number of Trucks Available
+                                    </label>
+                                    <input type="number" name="numberOfTrucks" id="numberOfTrucks" class="form-control" value="10" min="1" max="50" required>
+                                    <small class="text-muted">Maximum trucks the optimizer can use</small>
+                                </div>
+                            </div>
+                        </div>
+                            
+                            <!-- Hidden field for waypoint data -->
+                            <input type="hidden" name="waypointsJson" id="waypointsJson">
+                            <input type="hidden" name="truckParametersJson" id="truckParametersJson">
+                            
+                            <!-- CSV Upload - Collapsed Section -->
+                            <div class="accordion mb-4 advanced-only advanced-hidden" id="csvAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#csvCollapse">
+                                            <i class="fas fa-file-csv me-2"></i>CSV Upload
+                                        </button>
+                                    </h2>
+                                    <div id="csvCollapse" class="accordion-collapse collapse" data-bs-parent="#csvAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="file" class="form-control" id="csvFile" name="csvFile" accept=".csv">
+                                                <button class="btn btn-outline-secondary btn-sm" type="button">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                            </div>
+                                            <small class="form-text text-muted">Address, City, State, Demand</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Waypoints Section -->
+                            <div class="accordion mb-4" id="waypointsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#waypointsCollapse">
+                                            <i class="fas fa-map-pin me-2"></i>Waypoints
+                                        </button>
+                                    </h2>
+                                    <div id="waypointsCollapse" class="accordion-collapse collapse" data-bs-parent="#waypointsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="example-text mb-3">
+                                                <strong>Required:</strong> First waypoint must be the warehouse (demand = 0).<br>
+                                                Each additional waypoint is a delivery location.
+                                            </div>
+                                            <div id="waypointsContainer">
+                                                <!-- Waypoint cards will be generated by JavaScript -->
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="addWaypointBtn">
+                                                <i class="fas fa-plus me-2"></i>Add Waypoint
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+
+                            <!-- Tier 1: Vehicle Defaults - Collapsible -->
+                            <div class="accordion mb-4" id="vehicleDefaultsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleDefaultsCollapse">
+                                            <i class="fas fa-truck me-2"></i>Vehicle Defaults
+                                        </button>
+                                    </h2>
+                                    <div id="vehicleDefaultsCollapse" class="accordion-collapse collapse" data-bs-parent="#vehicleDefaultsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="alert alert-secondary py-2 small mb-3">
+                                                <i class="fas fa-info-circle me-2"></i>Default values applied to all trucks unless overridden.
+                                            </div>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Default Capacity (pallets)</label>
+                                                    <input type="number" name="defaultTruckCapacity" class="form-control compact-input" value="10" min="1" required>
+                                                </div>
+                                            </div>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Max Route Distance (miles)</label>
+                                                    <input type="number" name="globalMaxRouteMiles" class="form-control compact-input" th:value="${globalMaxRouteMiles != null ? globalMaxRouteMiles : 1500}" value="1500" min="1" step="0.1" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Max Route Duration (hours)</label>
+                                                    <input type="number" name="globalMaxRouteDurationHours" class="form-control compact-input" value="12" min="1" max="24" onchange="updateGlobalMaxRouteDuration()" required>
+                                                </div>
+                                                <input type="hidden" name="globalMaxRouteDurationSeconds" id="globalMaxRouteDurationSeconds" value="43200">
+                                            </div>
+                                            <!-- <div class="row g-2 mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Default Cost per Mile ($)</label>
+                                                    <input type="number" name="defaultCostPerMile" class="form-control compact-input" value="1.75" min="0" step="0.01" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Default Cost per Hour ($)</label>
+                                                    <input type="number" name="defaultCostPerHour" class="form-control compact-input" value="65" min="0" step="0.01" required>
+                                                </div>
+                                            </div> -->
+                                            <div class="row g-2">
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Fixed Cost per Truck ($)</label>
+                                                    <input type="number" name="defaultFixedCostPerTruck" class="form-control compact-input" value="100000" min="0" step="0.01" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Service Time Multiplier</label>
+                                                    <input type="number" name="defaultServiceTimeMultiplier" class="form-control compact-input" value="1.0" min="0.1" step="0.1" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tier 2: Problem Settings - Collapsible -->
+                            <div class="accordion mb-4 advanced-only advanced-hidden" id="problemSettingsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#problemSettingsCollapse">
+                                            <i class="fas fa-cog me-2"></i>Problem Settings
+                                        </button>
+                                    </h2>
+                                    <div id="problemSettingsCollapse" class="accordion-collapse collapse show" data-bs-parent="#problemSettingsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="alert alert-secondary py-2 small mb-3">
+                                                <i class="fas fa-info-circle me-2"></i>Global constraints and depot rules.
+                                            </div>
+                                            
+                                            <div class="mb-3 pb-3 border-bottom">
+                                                <h6 class="fw-bold mb-3"><i class="fas fa-clock me-2"></i>Depot Operating Hours</h6>
+                                                <div class="row g-2">
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Depot Opens At</label>
+                                                        <input type="time" class="form-control compact-input" name="depotStartTime" id="depotStartTime" value="00:00" onchange="updateDepotStartSeconds()">
+                                                        <small class="text-muted">When trucks can depart</small>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Depot Closes At</label>
+                                                        <input type="time" class="form-control compact-input" name="depotEndTime" id="depotEndTime" value="23:59" onchange="updateDepotEndSeconds()">
+                                                        <small class="text-muted">When trucks must return</small>
+                                                    </div>
+                                                    <input type="hidden" name="depotStartTimeSeconds" id="depotStartTimeSeconds" value="0">
+                                                    <input type="hidden" name="depotEndTimeSeconds" id="depotEndTimeSeconds" value="86400">
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <h6 class="fw-bold mb-3"><i class="fas fa-hourglass me-2"></i>Time Window Flexibility</h6>
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" type="checkbox" name="useTimeConstraints" id="useTimeConstraints" value="false" checked>
+                                                    <label class="form-check-label" for="useTimeConstraints">
+                                                        Enable time constraints
+                                                    </label>
+                                                </div>
+                                                <div class="row g-2">
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Waiting Slack (minutes)</label>
+                                                        <input type="number" name="timeWindowSlackMinutes" class="form-control compact-input" value="60" min="0" onchange="updateTimeWindowSlack()" required>
+                                                        <small class="text-muted">Allowed wait before time window violation</small>
+                                                    </div>
+                                                    <input type="hidden" name="timeWindowSlackSeconds" id="timeWindowSlackSeconds" value="3600"> 
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tier 3: Optimizer Presets - Collapsible (Open by Default) -->
+                            <div class="accordion mb-4" id="optimizerPresetsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#optimizerPresetsCollapse">
+                                            <i class="fas fa-sliders-h me-2"></i>Optimization Goal
+                                        </button>
+                                    </h2>
+                                    <div id="optimizerPresetsCollapse" class="accordion-collapse collapse" data-bs-parent="#optimizerPresetsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="alert alert-secondary py-2 small mb-3">
+                                                <i class="fas fa-info-circle me-2"></i>Select your primary objective. The optimizer adjusts penalties accordingly.
+                                            </div>
+                                            
+                                            <div class="mb-4">
+                                                <label class="form-label fw-bold">Optimization Goal</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="optimizationGoal" id="goalCheapest" value="CHEAPEST" onchange="applyOptimizerGoal()">
+                                                    <label class="form-check-label" for="goalCheapest">
+                                                        <strong>Cheapest</strong> - Minimize total cost
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="optimizationGoal" id="goalBalanced" value="BALANCED" checked onchange="applyOptimizerGoal()">
+                                                    <label class="form-check-label" for="goalBalanced">
+                                                        <strong>Balanced</strong> - Good cost & efficiency (recommended)
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="optimizationGoal" id="goalFastest" value="FASTEST" onchange="applyOptimizerGoal()">
+                                                    <label class="form-check-label" for="goalFastest">
+                                                        <strong>Fastest</strong> - Minimize route time
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="optimizationGoal" id="goalFewestTrucks" value="FEWEST_TRUCKS" onchange="applyOptimizerGoal()">
+                                                    <label class="form-check-label" for="goalFewestTrucks">
+                                                        <strong>Fewest Trucks</strong> - Maximize route consolidation
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-4 pb-4 border-bottom">
+                                                <label class="form-label fw-bold">Solve Speed</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="solveSpeed" id="speedFast" value="FAST" onchange="applySolveSpeed()">
+                                                    <label class="form-check-label" for="speedFast">
+                                                        <strong>Fast</strong> (10 sec) - Quick result
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="solveSpeed" id="speedNormal" value="NORMAL" checked onchange="applySolveSpeed()">
+                                                    <label class="form-check-label" for="speedNormal">
+                                                        <strong>Normal</strong> (30 sec) - Balanced
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="solveSpeed" id="speedBest" value="BEST" onchange="applySolveSpeed()">
+                                                    <label class="form-check-label" for="speedBest">
+                                                        <strong>Best</strong> (120 sec) - Optimal solution
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label class="compact-label">Route Balance Coefficient</label>
+                                                <input type="number" name="routeBalanceCoefficient" class="form-control compact-input" value="10" min="1" max="500" step="1" required>
+                                                <small class="text-muted">Higher = more uniform route distances (1–500)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Route Options Section - Collapsible -->
+                            <!-- <div class="accordion mb-4 advanced-only" id="routeOptionsAccordion" style="display: none;">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#routeOptionsCollapse">
+                                            <i class="fas fa-route me-2"></i>Route Options
+                                        </button>
+                                    </h2>
+                                    <div id="routeOptionsCollapse" class="accordion-collapse collapse" data-bs-parent="#routeOptionsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="mb-4 pb-3 border-bottom">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="fas fa-clock me-2"></i>Depot Operating Hours
+                                                </h6>
+                                                <div class="row g-2">
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Depot Opens At</label>
+                                                        <input type="time" class="form-control compact-input" name="depotStartTime" id="depotStartTime" value="00:00" onchange="updateDepotStartSeconds()">
+                                                        <small class="text-muted">When trucks can depart</small>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Depot Closes At</label>
+                                                        <input type="time" class="form-control compact-input" name="depotEndTime" id="depotEndTime" value="23:59" onchange="updateDepotEndSeconds()">
+                                                        <small class="text-muted">When trucks must return</small>
+                                                    </div>
+                                                    <input type="hidden" name="depotStartTimeSeconds" id="depotStartTimeSeconds" value="0">
+                                                    <input type="hidden" name="depotEndTimeSeconds" id="depotEndTimeSeconds" value="86400">
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-4 pb-3 border-bottom">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="fas fa-hourglass-end me-2"></i>Max Route Duration
+                                                </h6>
+                                                <div class="row g-2">
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Hours</label>
+                                                        <input type="number" class="form-control compact-input" id="maxRouteDurationHours" value="24" min="1" max="24" onchange="updateMaxRouteDuration()">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="compact-label">Minutes</label>
+                                                        <input type="number" class="form-control compact-input" id="maxRouteDurationMinutes" value="0" min="0" max="59" onchange="updateMaxRouteDuration()">
+                                                    </div>
+                                                    <input type="hidden" name="maxRouteDurationSeconds" id="maxRouteDurationSeconds" value="43200">
+                                                    <small class="text-muted d-block mt-2">Maximum time each truck can be on the road</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="row g-2">
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Depart Date</label>
+                                                    <input type="date" class="form-control compact-input" name="departDate">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="compact-label">Depart Time</label>
+                                                    <input type="time" class="form-control compact-input" name="departTime" value="08:00">
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidTollRoads" id="avoidTollRoads">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="avoidTollRoads">
+                                                            Avoid toll roads
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="reorderStops" id="reorderStops" checked>
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="reorderStops">
+                                                            Re-order stops
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidFerries" id="avoidFerries">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="avoidFerries">
+                                                            Avoid ferries
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidTunnels" id="avoidTunnels">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="avoidTunnels">
+                                                            Avoid tunnels
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidDirtRoads" id="avoidDirtRoads">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="avoidDirtRoads">
+                                                            Avoid dirt roads
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="considerTraffic" id="considerTraffic">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="considerTraffic">
+                                                            Consider traffic conditions
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="avoidSharpTurns" id="avoidSharpTurns">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="avoidSharpTurns">
+                                                            Avoid sharp turns
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="applySeasonalClosures" id="applySeasonalClosures">
+                                                        <label class="form-check-label compact-label" style="margin-bottom: 0;" for="applySeasonalClosures">
+                                                            Apply seasonal closures
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div> -->
+
+                            <!-- Truck Parameters Section - Collapsible -->
+                            <div class="accordion mb-4 advanced-only advanced-hidden" id="truckParamsAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#truckParamsCollapse">
+                                            <i class="fas fa-truck me-2"></i>Truck Parameters (Advanced)
+                                        </button>
+                                    </h2>
+                                    <div id="truckParamsCollapse" class="accordion-collapse collapse" data-bs-parent="#truckParamsAccordion">
+                                        <div class="accordion-body p-3">
+                                            <div class="alert alert-warning py-2 small">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                Advanced users only. Most scenarios do <strong>not</strong> require per-truck customization.
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Number of Trucks to Customize</label>
+                                                <input type="number" class="form-control" id="numTrucksForCustomization" value="1" min="1" max="20">
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="btn-group btn-group-sm w-100" id="truckTabs" role="group">
+                                                    <!-- Truck tabs will be generated by JavaScript -->
+                                                </div>
+                                            </div>
+                                            <div id="truckParametersContainer">
+                                                <!-- Truck parameter fields will be generated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-grid mt-4">
+                                <button class="btn btn-primary btn-lg" type="submit">
+                                    <i class="fas fa-calculator me-2"></i>Run Optimization
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <!-- <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-truck"></i>
+                            <h3>10</h3>
+                            <p>Trucks</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-road"></i>
+                            <h3>1,240 km</h3>
+                            <p>Total Distance</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card">
+                            <i class="fas fa-dollar-sign"></i>
+                            <h3>$4,850</h3>
+                            <p>Estimated Savings</p>
+                        </div>
+                    </div>
+                </div> -->
+            </div>
+        </div>
+
+        <!-- Results overlay on the right -->
+        <!-- <div class="results-overlay">
+            <div class="row g-4">
+                <!-- Right Column: Map and Results -->
+                <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <span>Optimization Results</span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3">Sample Route Summary</h5>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Truck #1 Route</span>
+                                <span class="badge bg-primary">18 pallets</span>
+                            </div>
+                            <div class="route-path">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker bg-success"></span>
+                                    <span>Warehouse (Start)</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Columbus, OH - 5 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Dayton, OH - 8 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="route-marker"></span>
+                                    <span>Cincinnati, OH - 5 pallets</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="route-marker bg-danger"></span>
+                                    <span>Warehouse (End)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress mb-3" style="height: 10px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 25%;"
+                                aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 50%;"
+                                aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-info" role="progressbar" style="width: 25%;" aria-valuenow="25"
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="text-success fw-bold">425 km</div>
+                                <small>Distance</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-primary fw-bold">6h 25m</div>
+                                <small>Duration</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-info fw-bold">$850</div>
+                                <small>Cost</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center py-1">
+            <!-- <div class="row">
+                <div class="col-md-6 mb-4 mb-md-0">
+                    <h5><i class="fas fa-truck me-2"></i>TruckRoute Optimizer</h5>
+                    <p class="mt-3">Truck routing optimization software I wrote in my free time.</p>
+                    <p> The calculations can be very computer resource intensive, so loading times may vary.</p>
+                    <p> Currently I am limiting this to part of the midwest
+                        because of limited computing power. I am still actively updating this website
+                        and if you have any questions or suggestions email me.</p>
+                    <div th:if="${errorMessage}" class="alert alert-danger mt-3" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span th:text="${errorMessage}"></span>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4 mb-md-0">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white text-decoration-none">Documentation</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">API Access</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Pricing</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Support</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Contact</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i> tdim995@truckroute.com</li>
+                        <li><i class="fas fa-phone me-2"></i> +1 (555) 123-4567</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="my-4 bg-light"> -->
+            <p class="mb-0">&copy; 2025 TruckRoute Optimizer. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@mapbox/polyline"></script>
+    <script src="/javascript/main.js"></script>
+
+     <script th:inline="javascript">
+        window.optimizationResults = /*[[${resultsJson}]]*/ {};
+    </script>
+
+    <script th:inline="javascript">
+
+        /**
+         * Prepares form data before submission by serializing waypoints and truck parameters
+         * from localStorage into hidden form fields.
+         */
+        function prepareFormSubmission(event) {
+            // Get stored data from localStorage
+            const waypointsData = JSON.parse(localStorage.getItem('waypoints')) || {};
+            const truckParamsData = JSON.parse(localStorage.getItem('truckParameters')) || {};
+            
+            // Populate hidden fields with serialized data
+            document.getElementById('waypointsJson').value = JSON.stringify(waypointsData);
+            document.getElementById('truckParametersJson').value = JSON.stringify(truckParamsData);
+            
+            console.log('Waypoints being sent:', waypointsData);
+            console.log('Truck parameters being sent:', truckParamsData);
+            
+            // Form will proceed with submission
+        }
+
+        // document.addEventListener('DOMContentLoaded', function () {
+        //     var errorMessage = /*[[${errorMessage} == null ? 'null' : '"' + ${errorMessage} + '"']]*/ null;
+        //     if (errorMessage && errorMessage !== "null" && errorMessage !== "") {
+        //         document.getElementById('errorModalBody').textContent = errorMessage;
+        //         var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        //         errorModal.show();
+        //     }
+        // });
+
+        const optimizationResults = /*[[${resultsJson}]]*/ {};
+        const results = typeof optimizationResults === 'string' ? JSON.parse(optimizationResults) : optimizationResults;
+        console.log(optimizationResults);
+        console.log(results);
+        let routeLayers = [];
+        let currentVisRouteIdx = -1; // -1 means all routes
+        let useEncodedPolyline = false; // Toggle state
+
+        // Initialize map
+            var map = L.map('map').setView([40.0, -86.0], 7);
+
+            // Add tile layer (fixed: tileSize should be 256 for OSM, not 102)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                tileSize: 256,
+                maxZoom: 18,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+
+        if (!results || !results.results || results.results.length === 0) {
+            drawSampleRoute();
+        } else {
+            drawRoutesFromResults(results);
+            //update optimization results
+        }
+
+
+        if (results && results.results && results.results.length > 0) {
+            updateOptimizationResults(results);
+        }
+
+        // Advanced Mode Toggle
+        function toggleAdvancedMode() {
+            const isAdvanced = document.getElementById('advancedModeToggle').checked;
+            const advancedSections = document.querySelectorAll('.advanced-only');
+            
+            advancedSections.forEach(section => {
+                if (isAdvanced) {
+                    section.style.display = '';
+                } else {
+                    section.style.display = 'none';
+                }
+            });
+            
+            // Save preference to localStorage
+            localStorage.setItem('advancedMode', isAdvanced);
+        }
+
+        // Restore advanced mode preference on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedMode = localStorage.getItem('advancedMode') === 'true';
+            if (savedMode) {
+                document.getElementById('advancedModeToggle').checked = true;
+                toggleAdvancedMode();
+            }
+        });
+
+        // Waypoints Management
+        const serverFormState = /*[[${formState}]]*/ null;
+
+        function parseStoredJson(value) {
+            if (!value || typeof value !== 'string') {
+                return null;
+            }
+            try {
+                return JSON.parse(value);
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function applyServerFormStateToStorage() {
+            if (!serverFormState) return;
+
+            if (serverFormState.waypointsJson && parseStoredJson(serverFormState.waypointsJson)) {
+                localStorage.setItem('waypoints', serverFormState.waypointsJson);
+            }
+
+            if (serverFormState.truckParametersJson && parseStoredJson(serverFormState.truckParametersJson)) {
+                localStorage.setItem('truckParameters', serverFormState.truckParametersJson);
+            }
+        }
+
+        function applyServerFormStateToInputs() {
+            if (!serverFormState) return;
+
+            Object.entries(serverFormState).forEach(([name, value]) => {
+                if (name === 'waypointsJson' || name === 'truckParametersJson' || name.startsWith('_')) {
+                    return;
+                }
+
+                const radioInputs = document.querySelectorAll(`input[type="radio"][name="${name}"]`);
+                if (radioInputs.length > 0) {
+                    radioInputs.forEach((radio) => {
+                        radio.checked = String(radio.value) === String(value);
+                    });
+                    return;
+                }
+
+                const input = document.querySelector(`[name="${name}"]`);
+                if (!input) {
+                    return;
+                }
+
+                if (input.type === 'checkbox') {
+                    input.checked = String(value) === 'true' || String(value) === 'on';
+                    return;
+                }
+
+                input.value = value == null ? '' : value;
+            });
+        }
+
+        applyServerFormStateToStorage();
+
+        let waypoints = JSON.parse(localStorage.getItem('waypoints')) || {
+            start: { address: '', city: '', state: '' },
+            // By default, no timing fields are set; user can enable per-stop timing
+            stops: [{ address: '', city: '', state: '', demand: 0, hasTiming: false }],
+            end: { address: '', city: '', state: '' }
+        };
+
+        function renderWaypoints() {
+            const container = document.getElementById('waypointsContainer');
+            if (!container) return;
+
+            let html = '';
+
+            // Start waypoint
+            html += `
+                <div class="waypoint-card warehouse">
+                    <span class="waypoint-label">Start (Warehouse)</span>
+                    <input type="text" class="waypoint-input" placeholder="Address" value="${waypoints.start.address}" onchange="updateWaypoint('start', 'address', this.value)">
+                </div>
+            `;
+
+            // Delivery stops
+            waypoints.stops.forEach((stop, idx) => {
+                const hasTiming = !!(stop.hasTiming || stop.timeWindowStart || stop.timeWindowEnd || stop.serviceTimeMinutes != null);
+                const timeWindowStart = stop.timeWindowStart || '09:00';
+                const timeWindowEnd = stop.timeWindowEnd || '17:00';
+                const serviceTimeMinutes = stop.serviceTimeMinutes != null ? stop.serviceTimeMinutes : 30;
+                const waitSlackMinutes = stop.waitSlackMinutes != null ? stop.waitSlackMinutes : 10;
+
+                html += `
+                    <div class="waypoint-card waypoint-stop-card">
+                        <div class="waypoint-row waypoint-row-main">
+                            <span class="waypoint-label waypoint-label-inline">Stop ${idx + 1}</span>
+                            <input type="text" class="waypoint-input waypoint-input-address" placeholder="Address" value="${stop.address}" onchange="updateWaypoint('stop', ${idx}, 'address', this.value)">
+                            <div class="waypoint-demand-group">
+                                <input type="number" class="waypoint-input demand" placeholder="Qty" min="0" value="${stop.demand}" onchange="updateWaypoint('stop', ${idx}, 'demand', this.value)">
+                                <span class="waypoint-label waypoint-demand-label">pallets</span>
+                            </div>
+                        </div>
+                        <div class="waypoint-row waypoint-row-meta">
+                            <div class="waypoint-row-tight">
+                                <input type="checkbox" id="toggleTiming_${idx}" ${hasTiming ? 'checked' : ''} onchange="toggleStopTiming(${idx}, this.checked)">
+                                <label for="toggleTiming_${idx}" class="waypoint-label waypoint-timing-toggle-label">Time constraints</label>
+                            </div>
+                            ${waypoints.stops.length > 1 ? `<button type="button" class="waypoint-delete-btn" onclick="deleteWaypoint(${idx})" title="Delete stop">×</button>` : ''}
+                        </div>
+                        <div id="timingFields_${idx}" class="timing-fields ${hasTiming ? '' : 'd-none'}">
+                            <div class="waypoint-row-timing">
+                                <span class="waypoint-muted-label">Time Window:</span>
+                                <input type="time" class="waypoint-input waypoint-time-input" value="${timeWindowStart}" onchange="updateWaypoint('stop', ${idx}, 'timeWindowStart', this.value)">
+                                <span class="waypoint-text-muted">to</span>
+                                <input type="time" class="waypoint-input waypoint-time-input" value="${timeWindowEnd}" onchange="updateWaypoint('stop', ${idx}, 'timeWindowEnd', this.value)">
+                            </div>
+                            <div class="waypoint-row-timing">
+                                <span class="waypoint-muted-label">Service Time:</span>
+                                <input type="number" class="waypoint-input waypoint-small-input" min="0" step="5" placeholder="mins" value="${serviceTimeMinutes}" onchange="updateWaypoint('stop', ${idx}, 'serviceTimeMinutes', this.value)">
+                                <span class="waypoint-text-muted waypoint-text-nowrap">minutes</span>
+                            </div>
+                            <div class="waypoint-row-timing">
+                                <span class="waypoint-muted-label">
+                                    Wait Slack:
+                                    <i class="fas fa-info-circle waypoint-info-icon" title="Maximum time a truck can wait at this stop before the time window violation occurs. Higher values provide more flexibility for early arrivals."></i>
+                                </span>
+                                <input type="number" class="waypoint-input waypoint-small-input" min="0" step="5" placeholder="mins" value="${waitSlackMinutes}" onchange="updateWaypoint('stop', ${idx}, 'waitSlackMinutes', this.value)">
+                                <span class="waypoint-text-muted waypoint-text-nowrap">minutes</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // End waypoint
+            html += `
+                <div class="waypoint-card end">
+                    <span class="waypoint-label">End</span>
+                    <input type="text" class="waypoint-input" placeholder="Address (leave blank for start)" value="${waypoints.end.address}" onchange="updateWaypoint('end', 'address', this.value)">
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateWaypoint(type, ...args) {
+            if (type === 'start' || type === 'end') {
+                const field = args[0];
+                const value = args[1];
+                waypoints[type][field] = value;
+            } else if (type === 'stop') {
+                const idx = args[0];
+                const field = args[1];
+                const value = args[2];
+                // Convert demand and service time to numbers, keep times as strings
+                if (field === 'demand' || field === 'serviceTimeMinutes') {
+                    waypoints.stops[idx][field] = parseInt(value) || 0;
+                } else {
+                    waypoints.stops[idx][field] = value;
+                }
+            }
+            localStorage.setItem('waypoints', JSON.stringify(waypoints));
+        }
+
+        function toggleStopTiming(idx, enabled) {
+            const stop = waypoints.stops[idx];
+            if (enabled) {
+                stop.hasTiming = true;
+                if (!stop.timeWindowStart) stop.timeWindowStart = '09:00';
+                if (!stop.timeWindowEnd) stop.timeWindowEnd = '17:00';
+                if (stop.serviceTimeMinutes == null) stop.serviceTimeMinutes = 30;
+                if (stop.waitSlackMinutes == null) stop.waitSlackMinutes = 10;
+            } else {
+                stop.hasTiming = false;
+                delete stop.timeWindowStart;
+                delete stop.timeWindowEnd;
+                delete stop.serviceTimeMinutes;
+                delete stop.waitSlackMinutes;
+                delete stop.serviceTimeMinutes;
+            }
+            localStorage.setItem('waypoints', JSON.stringify(waypoints));
+            renderWaypoints();
+        }
+
+        function deleteWaypoint(idx) {
+            if (waypoints.stops.length <= 1) return; // Prevent deleting last stop
+            waypoints.stops.splice(idx, 1);
+            localStorage.setItem('waypoints', JSON.stringify(waypoints));
+            renderWaypoints();
+        }
+
+        function addWaypoint() {
+            waypoints.stops.push({ address: '', city: '', state: '', demand: 0 });
+            localStorage.setItem('waypoints', JSON.stringify(waypoints));
+            renderWaypoints();
+        }
+
+        // Time Conversion Functions for Depot and Route Duration
+        function updateDepotStartSeconds() {
+            const timeInput = document.getElementById('depotStartTime');
+            if (!timeInput) return; // Element doesn't exist
+            const value = timeInput.value;
+            if (!value) return;
+            const [hours, minutes] = value.split(':').map(Number);
+            const seconds = hours * 3600 + minutes * 60;
+            document.getElementById('depotStartTimeSeconds').value = seconds;
+            console.log('Depot Start: ' + value + ' = ' + seconds + ' seconds');
+        }
+
+        function updateDepotEndSeconds() {
+            const timeInput = document.getElementById('depotEndTime');
+            if (!timeInput) return; // Element doesn't exist
+            const value = timeInput.value;
+            if (!value) return;
+            const [hours, minutes] = value.split(':').map(Number);
+            const seconds = hours * 3600 + minutes * 60;
+            document.getElementById('depotEndTimeSeconds').value = seconds;
+            console.log('Depot End: ' + value + ' = ' + seconds + ' seconds');
+        }
+
+        function updateMaxRouteDuration() {
+            const hoursEl = document.getElementById('maxRouteDurationHours');
+            const minutesEl = document.getElementById('maxRouteDurationMinutes');
+            if (!hoursEl || !minutesEl) return; // Elements don't exist (Route Options commented out)
+            const hours = parseInt(hoursEl.value) || 0;
+            const minutes = parseInt(minutesEl.value) || 0;
+            const seconds = hours * 3600 + minutes * 60;
+            document.getElementById('maxRouteDurationSeconds').value = seconds;
+            console.log('Max Route Duration: ' + hours + 'h ' + minutes + 'm = ' + seconds + ' seconds');
+        }
+
+        function updateGlobalMaxRouteDuration() {
+            const hours = parseInt(document.querySelector('input[name="globalMaxRouteDurationHours"]').value) || 0;
+            const seconds = hours * 3600;
+            document.getElementById('globalMaxRouteDurationSeconds').value = seconds;
+            console.log('Global Max Route Duration: ' + hours + 'h = ' + seconds + ' seconds');
+        }
+
+        function updateTimeWindowSlack() {
+            const minutes = parseInt(document.querySelector('input[name="timeWindowSlackMinutes"]').value) || 0;
+            const seconds = minutes * 60;
+            document.getElementById('timeWindowSlackSeconds').value = seconds;
+            console.log('Time Window Slack: ' + minutes + 'm = ' + seconds + ' seconds');
+        }
+
+        function applyOptimizerGoal() {
+            const goal = document.querySelector('input[name="optimizationGoal"]:checked').value;
+            const balanceInput = document.querySelector('input[name="routeBalanceCoefficient"]');
+            
+            switch(goal) {
+                case 'CHEAPEST':
+                    balanceInput.value = 50;
+                    break;
+                case 'FASTEST':
+                    balanceInput.value = 80;
+                    break;
+                case 'BALANCED':
+                    balanceInput.value = 100;
+                    break;
+                case 'FEWEST_TRUCKS':
+                    balanceInput.value = 150;
+                    break;
+            }
+            console.log('Applied optimizer goal: ' + goal);
+        }
+
+        function applySolveSpeed() {
+            const speed = document.querySelector('input[name="solveSpeed"]:checked').value;
+            console.log('Applied solve speed: ' + speed);
+        }
+
+        // Sync Number of Trucks Available with Number of Trucks to Customize
+        function syncTruckCounts() {
+            const availableTrucks = document.getElementById('numberOfTrucks');
+            const customizeTrucks = document.getElementById('numTrucksForCustomization');
+            
+            if (availableTrucks && customizeTrucks) {
+                const maxTrucks = parseInt(availableTrucks.value) || 1;
+                customizeTrucks.max = maxTrucks;
+                
+                // If customization count exceeds available trucks, reduce it
+                if (parseInt(customizeTrucks.value) > maxTrucks) {
+                    customizeTrucks.value = maxTrucks;
+                    // Trigger update to re-render truck tabs
+                    customizeTrucks.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+
+        // Truck Parameters Management
+        const truckParameters = JSON.parse(localStorage.getItem('truckParameters')) || {};
+        
+        function initializeTruckParameters() {
+            const numTrucksInput = document.getElementById('numTrucksForCustomization');
+            const numTrucksAvailable = document.getElementById('numberOfTrucks');
+            if (!numTrucksInput) return;
+
+            // Sync counts initially and whenever available trucks changes
+            if (numTrucksAvailable) {
+                syncTruckCounts();
+                numTrucksAvailable.addEventListener('change', syncTruckCounts);
+                numTrucksAvailable.addEventListener('input', syncTruckCounts);
+            }
+
+            const updateTruckTabs = () => {
+                const numTrucks = parseInt(numTrucksInput.value) || 1;
+                renderTruckTabs(numTrucks);
+                renderTruckParameters(1);
+            };
+
+            numTrucksInput.addEventListener('change', updateTruckTabs);
+            numTrucksInput.addEventListener('input', updateTruckTabs);
+            updateTruckTabs();
+        }
+
+        function renderTruckTabs(numTrucks) {
+            const tabsContainer = document.getElementById('truckTabs');
+            tabsContainer.innerHTML = '';
+            
+            for (let i = 1; i <= numTrucks; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-secondary';
+                btn.textContent = `Truck ${i}`;
+                btn.onclick = () => renderTruckParameters(i);
+                tabsContainer.appendChild(btn);
+            }
+        }
+
+        function renderTruckParameters(truckNum) {
+            const container = document.getElementById('truckParametersContainer');
+            const key = `truck_${truckNum}`;
+            const defaults = {
+                type: 'truck semi',
+                axleCount: 5,
+                hazmat: 'none',
+                fixedCost: 500,
+                costPerMile: 1.75,
+                costPerHour: 65,
+                heightFeet: 13,
+                heightInches: 6,
+                lengthFeet: 53,
+                lengthInches: 0,
+                widthFeet: 8,
+                widthInches: 6,
+                weight: 80000,
+                maxSpeed: 65,
+                fuel: 'diesel',
+                mpg: 6.5,
+                dollarPerGallon: 2.9,
+                workingTimeType: 'hours',
+                workingHours: 8,
+                workingStartTime: '07:00',
+                workingEndTime: '17:00'
+            };
+            const params = { ...defaults, ...(truckParameters[key] || {}) };
+
+            container.innerHTML = `
+                <div class="border rounded p-3 bg-light">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Truck Type</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'type', this.value)">
+                                    <option value="car" ${params.type === 'car' ? 'selected' : ''}>Car</option>
+                                    <option value="bus" ${params.type === 'bus' ? 'selected' : ''}>Bus</option>
+                                    <option value="light truck" ${params.type === 'light truck' ? 'selected' : ''}>Light Truck</option>
+                                    <option value="truck semi" ${params.type === 'truck semi' ? 'selected' : ''}>Truck Semi</option>
+                                    <option value="truck trailer" ${params.type === 'truck trailer' ? 'selected' : ''}>Truck Trailer</option>
+                                    <option value="truck double" ${params.type === 'truck double' ? 'selected' : ''}>Truck Double</option>
+                                    <option value="truck triple +" ${params.type === 'truck triple +' ? 'selected' : ''}>Truck Triple +</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Axle Count</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.axleCount}" min="1" onchange="saveTruckParam(${truckNum}, 'axleCount', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Working Time Type</label>
+                                <select class="form-control truck-param-input" id="workingTimeType_${truckNum}" onchange="saveTruckParam(${truckNum}, 'workingTimeType', this.value); renderTruckParameters(${truckNum})">
+                                    <option value="hours" ${params.workingTimeType === 'hours' ? 'selected' : ''}>Total Hours</option>
+                                    <option value="timeRange" ${params.workingTimeType === 'timeRange' ? 'selected' : ''}>Time Range</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${params.workingTimeType === 'hours' ? `
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Working Hours per Day</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.workingHours}" min="1" max="24" step="0.5" onchange="saveTruckParam(${truckNum}, 'workingHours', this.value)">
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Start Time</label>
+                                <input type="time" class="form-control truck-param-input" value="${params.workingStartTime}" onchange="saveTruckParam(${truckNum}, 'workingStartTime', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">End Time</label>
+                                <input type="time" class="form-control truck-param-input" value="${params.workingEndTime}" onchange="saveTruckParam(${truckNum}, 'workingEndTime', this.value)">
+                            </div>
+                        </div>
+                        `}
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Fixed Cost ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.fixedCost}" step="0.01" onchange="saveTruckParam(${truckNum}, 'fixedCost', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Cost/Mile ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.costPerMile}" step="0.01" onchange="saveTruckParam(${truckNum}, 'costPerMile', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Cost/Hour ($)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.costPerHour}" step="0.01" onchange="saveTruckParam(${truckNum}, 'costPerHour', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Height</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.heightFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'heightFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.heightInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'heightInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Length</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.lengthFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'lengthFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.lengthInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'lengthInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Width</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control truck-param-input" value="${params.widthFeet}" min="0" onchange="saveTruckParam(${truckNum}, 'widthFeet', this.value)" placeholder="Feet">
+                                    <span class="input-group-text">ft</span>
+                                    <input type="number" class="form-control truck-param-input" value="${params.widthInches}" min="0" max="11" onchange="saveTruckParam(${truckNum}, 'widthInches', this.value)" placeholder="Inches">
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Weight (lbs)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.weight}" onchange="saveTruckParam(${truckNum}, 'weight', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Max Speed (mph)</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.maxSpeed}" min="1" onchange="saveTruckParam(${truckNum}, 'maxSpeed', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Fuel Type</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'fuel', this.value)">
+                                    <option value="diesel" ${params.fuel === 'diesel' ? 'selected' : ''}>Diesel</option>
+                                    <option value="gas" ${params.fuel === 'gas' ? 'selected' : ''}>Gas</option>
+                                    <option value="electric" ${params.fuel === 'electric' ? 'selected' : ''}>Electric</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">MPG</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.mpg}" step="0.1" min="0.1" onchange="saveTruckParam(${truckNum}, 'mpg', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">$/Gallon</label>
+                                <input type="number" class="form-control truck-param-input" value="${params.dollarPerGallon}" step="0.01" onchange="saveTruckParam(${truckNum}, 'dollarPerGallon', this.value)">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="truck-param-field">
+                                <label class="truck-param-label">Hazmat Class</label>
+                                <select class="form-control truck-param-input" onchange="saveTruckParam(${truckNum}, 'hazmat', this.value)">
+                                    <option value="none" ${params.hazmat === 'none' ? 'selected' : ''}>None</option>
+                                    <option value="class1" ${params.hazmat === 'class1' ? 'selected' : ''}>Class 1: Explosives</option>
+                                    <option value="class2" ${params.hazmat === 'class2' ? 'selected' : ''}>Class 2: Gases</option>
+                                    <option value="class3" ${params.hazmat === 'class3' ? 'selected' : ''}>Class 3: Flammable Liquids</option>
+                                    <option value="class4" ${params.hazmat === 'class4' ? 'selected' : ''}>Class 4: Flammable Solids</option>
+                                    <option value="class5" ${params.hazmat === 'class5' ? 'selected' : ''}>Class 5: Oxidizers/Organic Peroxides</option>
+                                    <option value="class6" ${params.hazmat === 'class6' ? 'selected' : ''}>Class 6: Toxic/Infectious Substances</option>
+                                    <option value="class7" ${params.hazmat === 'class7' ? 'selected' : ''}>Class 7: Radioactive Materials</option>
+                                    <option value="class8" ${params.hazmat === 'class8' ? 'selected' : ''}>Class 8: Corrosives</option>
+                                    <option value="class9" ${params.hazmat === 'class9' ? 'selected' : ''}>Class 9: Miscellaneous</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Update active tab
+            const tabs = document.querySelectorAll('#truckTabs .btn');
+            tabs.forEach((tab, idx) => {
+                tab.classList.toggle('active', idx + 1 === truckNum);
+            });
+        }
+
+        function saveTruckParam(truckNum, paramKey, value) {
+            const key = `truck_${truckNum}`;
+            truckParameters[key] = truckParameters[key] || {};
+            truckParameters[key][paramKey] = paramKey === 'axleCount' || paramKey === 'weight' || paramKey === 'maxSpeed' ? parseInt(value) : isNaN(value) ? value : parseFloat(value);
+            localStorage.setItem('truckParameters', JSON.stringify(truckParameters));
+        }
+
+        // Attach event listeners after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            applyServerFormStateToInputs();
+
+            // Initialize waypoints
+            renderWaypoints();
+            const addWaypointBtn = document.getElementById('addWaypointBtn');
+            if (addWaypointBtn) {
+                addWaypointBtn.onclick = addWaypoint;
+            }
+
+            // Initialize time conversions for depot and route duration
+            updateDepotStartSeconds();
+            updateDepotEndSeconds();
+            updateMaxRouteDuration();
+
+            // Initialize truck parameters
+            initializeTruckParameters();
+
+            const prevBtn = document.getElementById('prevVisRouteBtn');
+            const nextBtn = document.getElementById('nextVisRouteBtn');
+            const showAllBtn = document.getElementById('showAllRoutesBtn');
+            const togglePolylineBtn = document.getElementById('togglePolylineTypeBtn');
+            if (prevBtn) prevBtn.onclick = () => {
+                if (currentVisRouteIdx > 0) showOnlyRoute(currentVisRouteIdx - 1);
+            };
+            if (nextBtn) nextBtn.onclick = () => {
+                const totalRoutes = (results.results || results).length;
+                if (currentVisRouteIdx < totalRoutes - 1) showOnlyRoute(currentVisRouteIdx + 1);
+            };
+            if (showAllBtn) showAllBtn.onclick = () => {
+                if (currentVisRouteIdx === -1) {
+                    // Currently showing all routes, switch to first route
+                    showOnlyRoute(0);
+                } else {
+                    // Currently showing a single route, switch to all routes
+                    currentVisRouteIdx = -1;
+                    drawRoutesFromResults(results);
+                }
+            };
+            if (togglePolylineBtn) {
+                togglePolylineBtn.onclick = function () {
+                    useEncodedPolyline = !useEncodedPolyline;
+                    console.log('Polyline toggle clicked. useEncodedPolyline:', useEncodedPolyline);
+                    console.log('Results:', results);
+                    if (results.results && results.results.length > 0) {
+                        console.log('First route has encodedGeometry:', results.results[0].encodedGeometry);
+                    }
+                    if (currentVisRouteIdx === -1) {
+                        drawRoutesFromResults(results);
+                    } else {
+                        showOnlyRoute(currentVisRouteIdx);
+                    }
+                };
+            }
+            updateRouteNavControls();
+
+            const formErrorAlert = document.getElementById('formErrorAlert');
+            if (formErrorAlert) {
+                formErrorAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+
+    </script>
+
+
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="errorModalBody">
+                    <!-- Error message will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>
